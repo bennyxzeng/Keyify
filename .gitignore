@@ -1,0 +1,31 @@
+# Keyify — build artifacts, caches, and secrets
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+
+# Nuitka build output
+build/
+dist/
+*.build/
+*.dist/
+*.onefile-build/
+main.exe
+Keyify.exe
+
+# Local Spotify OAuth token cache and app config (contains client secret!)
+.cache
+.cache-*
+*.token
+config.json
+appdata_local/
+
+# Editor/OS clutter
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store

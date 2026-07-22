@@ -1,0 +1,5 @@
+spotipy>=2.23.0
+global-hotkeys>=0.0.5
+pystray>=0.19.5
+Pillow>=10.0.0
+nuitka>=2.0.0
