@@ -23,7 +23,36 @@ from hotkey_manager import register_all, shutdown as shutdown_hotkeys
 from tray import TrayIcon
 from gui import SettingsWindow
 
-ICON_PATH = os.path.join(os.path.dirname(__file__), "..", "assets", "icon.ico")
+
+def _resolve_icon_path():
+    """
+    Purpose: Finds icon.ico reliably whether running as a raw Python script
+    or as a compiled Nuitka onefile/standalone executable.
+    Parameters: None.
+    Returns: str — absolute path to assets/icon.ico, or None if not found.
+
+    Explanation: Nuitka's --include-data-dir=assets=assets places the assets
+    folder DIRECTLY inside the onefile temp extraction root at runtime
+    (e.g. <temp_dir>/assets/icon.ico) — NOT one level up via "..". The first
+    candidate below matches that compiled layout. The second candidate covers
+    running main.py directly from source (src/main.py -> ../assets/icon.ico).
+    Checking both means this works identically in dev mode and after Nuitka
+    compilation without needing to change code between the two.
+    """
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    candidates = [
+        os.path.join(base_dir, "assets", "icon.ico"),        # Compiled onefile layout
+        os.path.join(base_dir, "..", "assets", "icon.ico"),  # Running from src/ in dev mode
+        os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "assets", "icon.ico"),
+    ]
+    for path in candidates:
+        abs_path = os.path.abspath(path)
+        if os.path.exists(abs_path):
+            return abs_path
+    return None
+
+
+ICON_PATH = _resolve_icon_path()
 
 
 def main():
@@ -40,6 +69,7 @@ def main():
     app_config = config_module.load_config()
 
     settings_window_ref = {"window": None}
+    tray_icon_ref = {"tray": None}
 
     def notify(message):
         """Purpose: Routes error/status messages to the tray balloon notification."""
@@ -63,9 +93,6 @@ def main():
     def show_settings():
         """Purpose: Opens (or focuses) the Tkinter settings window from the tray menu."""
         window = settings_window_ref["window"]
-        if window is None or not window.winfo_exists():
-            window = SettingsWindow(app_config, controller, on_hide_to_tray=window_hide)
-            settings_window_ref["window"] = window
         window.deiconify()
         window.lift()
 
@@ -79,30 +106,29 @@ def main():
         the app entirely, per spec (closing the settings window must NOT quit).
         """
         shutdown_hotkeys()
-        tray_icon_ref["tray"].stop()
+        if tray_icon_ref["tray"]:
+            tray_icon_ref["tray"].stop()
         os._exit(0)
 
-    tray_icon_ref = {"tray": None}
-    tray_icon = TrayIcon(ICON_PATH, on_open_settings=show_settings, on_quit=quit_app)
-    tray_icon_ref["tray"] = tray_icon
+    if ICON_PATH is None:
+        print("WARNING: icon.ico not found — tray icon will fail to load.")
+    else:
+        tray_icon = TrayIcon(ICON_PATH, on_open_settings=show_settings, on_quit=quit_app)
+        tray_icon_ref["tray"] = tray_icon
+        tray_thread = threading.Thread(target=tray_icon.run, daemon=True)
+        tray_thread.start()
 
-    tray_thread = threading.Thread(target=tray_icon.run, daemon=True)
-    tray_thread.start()
+    # Build the single Tkinter root window ONCE, up front, on the main thread.
+    # Reusing show_settings()/window_hide() against this same instance avoids
+    # the earlier bug of trying to create a second SettingsWindow later.
+    root = SettingsWindow(app_config, controller, on_hide_to_tray=window_hide)
+    settings_window_ref["window"] = root
 
     start_minimized = "--minimized" in sys.argv or app_config["start_minimized"]
-    if not start_minimized:
-        show_settings()
-
-    # Tkinter requires a root window/mainloop on the main thread; if we
-    # started minimized, we still need an invisible root to keep the process
-    # alive and allow show_settings() to work later from the tray thread.
-    if settings_window_ref["window"] is None:
-        root = SettingsWindow(app_config, controller, on_hide_to_tray=window_hide)
-        settings_window_ref["window"] = root
+    if start_minimized:
         root.withdraw()
-        root.mainloop()
-    else:
-        settings_window_ref["window"].mainloop()
+
+    root.mainloop()
 
 
 if __name__ == "__main__":
