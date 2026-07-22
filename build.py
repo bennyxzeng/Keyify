@@ -22,7 +22,7 @@ NUITKA_CMD = [
     "--onefile",
     "--assume-yes-for-downloads",
     "--enable-plugin=tk-inter",
-    "--windows-console-mode=disable",
+    "--windows-console-mode=force",
     f"--windows-icon-from-ico={ICON_PATH}",
     "--include-data-dir=assets=assets",
     "--output-filename=Keyify.exe",
