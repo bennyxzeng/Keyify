@@ -20,6 +20,8 @@ NUITKA_CMD = [
     sys.executable, "-m", "nuitka",
     "--standalone",
     "--onefile",
+    "--assume-yes-for-downloads",
+    "--enable-plugin=tk-inter",
     "--windows-console-mode=disable",
     f"--windows-icon-from-ico={ICON_PATH}",
     "--include-data-dir=assets=assets",
