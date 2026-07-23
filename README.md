@@ -43,9 +43,11 @@ Keyify needs a Spotify Developer app to talk to your Spotify account. This is a 
 1. Go to [Spotify for Developers](https://developer.spotify.com/dashboard) and log in with your Spotify account.
 2. Click **Create App**, give it any name/description (e.g. "Keyify"), and set the **Redirect URI** to `http://127.0.0.1:8888/callback`.
 3. Once created, open the app's settings page and copy the **Client ID** and **Client Secret**.
-4. Open Keyify, right-click the tray icon, and select **Open Settings**.
-5. Paste your Client ID and Client Secret into the corresponding fields and click **Save Settings**.
-6. A browser window will open asking you to log in and authorize Keyify — approve it, and you're done.
+4. Go to the **User Management** tab on your app's settings page and add your own name and email address. As of February 2026, Spotify requires every account that will authorize the app to be explicitly added here (up to 5 users), even if you're the only person using it. Skipping this step will cause Keyify's login to silently fail.
+5. Make sure the Spotify account you used to create the app has an active **Spotify Premium** subscription — required for both the app owner and playback control in general.
+6. Open Keyify, right-click the tray icon, and select **Open Settings**.
+7. Paste your Client ID and Client Secret into the corresponding fields and click **Save Settings**.
+8. A browser tab will briefly open to complete login — if you're already logged into Spotify in your browser, it may close automatically within a second, which is expected and means authorization succeeded.
 
 ## Installation
 

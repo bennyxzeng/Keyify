@@ -26,6 +26,15 @@ SCOPES = "user-modify-playback-state user-read-playback-state"
 MIN_INTERVAL_SECONDS = 0.35
 _last_call_times = {}
 
+def _is_restriction_error(exception):
+    """
+    Purpose: Detects Spotify's 403 "Restriction violated" error, which occurs
+    when an action like shuffle/repeat can't be performed right now due to
+    the current playback context (ads, certain podcasts/audiobooks, etc).
+    Parameters: exception (SpotifyException) — the caught exception.
+    Returns: bool — True if this is a restriction-violation error.
+    """
+    return exception.http_status == 403 and "restriction" in (exception.msg or "").lower()
 
 def _is_rate_limited(action_name):
     """
@@ -248,7 +257,10 @@ class SpotifyController:
             self.sp.shuffle(not currently_shuffled, device_id=device_id)
             return True
         except SpotifyException as e:
-            self.notify(f"Spotify error: {e.msg}")
+            if _is_restriction_error(e):
+                self.notify("Shuffle is currently unavailable for this content.")
+            else:
+                self.notify(f"Spotify error: {e.msg}")
             return False
         except ConnectionError:
             self.notify("No internet connection. Keyify actions are paused.")
@@ -273,7 +285,10 @@ class SpotifyController:
             self.sp.repeat(new_state, device_id=device_id)
             return True
         except SpotifyException as e:
-            self.notify(f"Spotify error: {e.msg}")
+            if _is_restriction_error(e):
+                self.notify("Repeat is currently unavailable for this content.")
+            else:
+                self.notify(f"Spotify error: {e.msg}")
             return False
         except ConnectionError:
             self.notify("No internet connection. Keyify actions are paused.")
