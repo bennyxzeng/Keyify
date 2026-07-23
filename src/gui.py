@@ -36,12 +36,14 @@ class SettingsWindow(tk.Tk):
     dict and re-registers hotkeys whenever a change is saved.
     """
 
-    def __init__(self, config, controller, on_hide_to_tray):
+    def __init__(self, config, get_controller, on_hide_to_tray):
         """
         Purpose: Builds the full settings window layout.
         Parameters:
             config (dict) — current app config (mutated in place, then saved).
-            controller (SpotifyController) — used to re-register hotkeys on save.
+            get_controller (callable) — function that returns a live, valid
+                SpotifyController (creating one lazily if credentials were
+                just entered), or None if credentials are still missing.
             on_hide_to_tray (callable) — called instead of destroying the window
                 when the user clicks the window's close (X) button, per the
                 requirement that closing the window doesn't quit the app.
@@ -49,7 +51,7 @@ class SettingsWindow(tk.Tk):
         """
         super().__init__()
         self.config_data = config
-        self.controller = controller
+        self.get_controller = get_controller
         self.title("Keyify Settings")
         self.geometry("480x560")
         self.resizable(False, False)
@@ -209,7 +211,9 @@ class SettingsWindow(tk.Tk):
         config_module.reset_keybinds_to_default(self.config_data)
         for action_name, var in self._keybind_vars.items():
             var.set(self.config_data["keybinds"][action_name])
-        hotkey_manager.register_all(self.config_data, self.controller)
+        controller = self.get_controller()
+        if controller is not None:
+            hotkey_manager.register_all(self.config_data, controller)
         messagebox.showinfo("Keyify", "Keybinds reset to default.")
 
     def _save_settings(self):
@@ -226,6 +230,16 @@ class SettingsWindow(tk.Tk):
 
         config_module.save_config(self.config_data)
         startup.set_start_on_boot(self.config_data["start_on_boot"])
-        hotkey_manager.register_all(self.config_data, self.controller)
+
+        controller = self.get_controller()
+        if controller is not None:
+            hotkey_manager.register_all(self.config_data, controller)
+        else:
+            messagebox.showwarning(
+                "Keyify",
+                "Settings saved, but hotkeys were not activated — "
+                "please double-check your Client ID and Client Secret."
+            )
+            return
 
         messagebox.showinfo("Keyify", "Settings saved.")

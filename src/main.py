@@ -36,13 +36,11 @@ def _resolve_icon_path():
     (e.g. <temp_dir>/assets/icon.ico) — NOT one level up via "..". The first
     candidate below matches that compiled layout. The second candidate covers
     running main.py directly from source (src/main.py -> ../assets/icon.ico).
-    Checking both means this works identically in dev mode and after Nuitka
-    compilation without needing to change code between the two.
     """
     base_dir = os.path.dirname(os.path.abspath(__file__))
     candidates = [
-        os.path.join(base_dir, "assets", "icon.ico"),        # Compiled onefile layout
-        os.path.join(base_dir, "..", "assets", "icon.ico"),  # Running from src/ in dev mode
+        os.path.join(base_dir, "assets", "icon.ico"),
+        os.path.join(base_dir, "..", "assets", "icon.ico"),
         os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "assets", "icon.ico"),
     ]
     for path in candidates:
@@ -70,22 +68,51 @@ def main():
 
     settings_window_ref = {"window": None}
     tray_icon_ref = {"tray": None}
+    controller_holder = {"controller": None}
 
     def notify(message):
         """Purpose: Routes error/status messages to the tray balloon notification."""
         if tray_icon_ref.get("tray"):
             tray_icon_ref["tray"].notify(message)
 
-    controller = None
-    if app_config["client_id"] and app_config["client_secret"]:
+    def ensure_controller():
+        """
+        Purpose: Lazily creates the SpotifyController the first time valid
+        credentials exist, and reuses it afterward.
+        Parameters: None.
+        Returns: SpotifyController or None — None if credentials are still
+        missing/empty (e.g. first run before the user has saved anything).
+
+        Explanation: This is the fix for the bug where controller was frozen
+        as None at startup if no credentials existed yet. The GUI calls this
+        every time Save Settings is clicked, so a controller gets created the
+        MOMENT valid credentials are entered, without requiring an app restart.
+        If credentials change (e.g. user re-enters a different Client ID), we
+        also rebuild the controller so it picks up the new credentials.
+        """
+        client_id = app_config["client_id"]
+        client_secret = app_config["client_secret"]
+        if not client_id or not client_secret:
+            return None
+
+        existing = controller_holder["controller"]
+        if existing is not None and getattr(existing, "_client_id", None) == client_id:
+            return existing
+
         port = port_utils.find_available_port()
         app_config["redirect_port"] = port
-        controller = SpotifyController(
-            client_id=app_config["client_id"],
-            client_secret=app_config["client_secret"],
+        new_controller = SpotifyController(
+            client_id=client_id,
+            client_secret=client_secret,
             redirect_port=port,
             notify_callback=notify,
         )
+        new_controller._client_id = client_id  # Tag for the reuse check above.
+        controller_holder["controller"] = new_controller
+        return new_controller
+
+    controller = ensure_controller()
+    if controller is not None:
         register_all(app_config, controller, on_conflict_error=lambda a, k: notify(
             f"Could not register hotkey '{k}' for {a} — it may be in use by another app."
         ))
@@ -119,9 +146,9 @@ def main():
         tray_thread.start()
 
     # Build the single Tkinter root window ONCE, up front, on the main thread.
-    # Reusing show_settings()/window_hide() against this same instance avoids
-    # the earlier bug of trying to create a second SettingsWindow later.
-    root = SettingsWindow(app_config, controller, on_hide_to_tray=window_hide)
+    # ensure_controller (not a fixed controller instance) is passed down so
+    # the GUI can always get a fresh/valid controller when Save is clicked.
+    root = SettingsWindow(app_config, ensure_controller, on_hide_to_tray=window_hide)
     settings_window_ref["window"] = root
 
     start_minimized = "--minimized" in sys.argv or app_config["start_minimized"]
