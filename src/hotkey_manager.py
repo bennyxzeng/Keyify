@@ -6,8 +6,12 @@ Purpose: Single place where keybind strings from config.py get translated
 into actual system-wide key listeners.
 Documentation: Called by main.py on startup and by gui.py whenever the user
 rebinds a key, so listeners always reflect the latest saved config.
-Maintenance: If we ever swap out the underlying hotkey library, only this
-file needs to change — gui.py and main.py just call register_all()/rebind().
+Maintenance: register_hotkey() from this library expects the combo as a
+PLAIN STRING like "control+alt+right" (joined with "+"), NOT a Python list.
+Passing a list triggers the library's internal _syntax_check() to raise an
+exception, which was previously being silently swallowed by our own
+try/except -- this is why hotkeys appeared to register with no error but
+never actually fired.
 """
 
 from global_hotkeys import (
@@ -17,25 +21,7 @@ from global_hotkeys import (
     clear_hotkeys,
 )
 
-# Purpose: Maps each Keyify action name to the SpotifyController method that
-# should run when its hotkey fires. Populated at runtime in register_all().
 _action_bindings = {}
-
-
-def _parse_keybind(keybind_str):
-    """
-    Purpose: Converts a stored keybind string like "control+alt+right" into
-    the (modifier_list, key) format global_hotkeys expects.
-    Parameters: keybind_str (str) — e.g. "control+alt+s".
-    Returns: tuple(list[str], str) — modifiers list and the final key.
-
-    Explanation: Config stores keybinds as lowercase "+"-joined strings for
-    easy JSON storage and GUI display; this is the one place that translates
-    that format into what the hotkey library actually needs.
-    """
-    parts = keybind_str.lower().split("+")
-    modifiers, key = parts[:-1], parts[-1]
-    return modifiers, key
 
 
 def register_all(config, controller, on_conflict_error=None):
@@ -50,9 +36,11 @@ def register_all(config, controller, on_conflict_error=None):
             another running application).
     Returns: None.
 
-    Explanation: This is called once at startup and again any time the user
-    saves a keybind change in the GUI, so the whole hotkey table stays in
-    sync with config.json without needing a full app restart.
+    Explanation: keybind_str is already stored in config.json as something
+    like "control+alt+right", which matches EXACTLY what register_hotkey()
+    expects as its first argument -- no list conversion needed. This was the
+    root cause of hotkeys silently not working: we were incorrectly splitting
+    this string into a list before passing it in.
     """
     clear_hotkeys()
     _action_bindings.clear()
@@ -68,13 +56,12 @@ def register_all(config, controller, on_conflict_error=None):
     }
 
     for action_name, keybind_str in config["keybinds"].items():
-        modifiers, key = _parse_keybind(keybind_str)
         action_func = method_map[action_name]
         try:
-            # global_hotkeys expects: register_hotkey(key_combo_list, on_press, on_release)
-            register_hotkey(modifiers + [key], action_func, None)
+            register_hotkey(keybind_str, action_func, None)
             _action_bindings[action_name] = keybind_str
-        except Exception:
+        except Exception as e:
+            print(f"Failed to register hotkey '{keybind_str}' for {action_name}: {e}")
             if on_conflict_error:
                 on_conflict_error(action_name, keybind_str)
 
@@ -102,8 +89,6 @@ def shutdown():
     """
     Purpose: Stops the hotkey listener thread cleanly on app quit.
     Parameters: None. Returns: None.
-    Explanation: Called from the tray "Quit Keyify" handler so the background
-    listener thread doesn't linger after the process should have exited.
     """
     stop_checking_hotkeys()
     clear_hotkeys()
