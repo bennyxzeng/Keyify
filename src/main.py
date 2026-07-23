@@ -109,6 +109,17 @@ def main():
                 notify_callback=notify,
             )
         except Exception:
+            # Authentication failed (bad credentials, user closed the browser
+            # login, network issue, etc). We print the FULL traceback here so
+            # it is visible in the console-mode debug build -- without this,
+            # the error was being caught and silently discarded, making the
+            # console appear blank even though a real error was occurring.
+            import traceback
+            print("=" * 60)
+            print("Spotify authentication failed with the following error:")
+            traceback.print_exc()
+            print("=" * 60)
+            sys.stdout.flush()
             return None
         new_controller._client_id = client_id
         controller_holder["controller"] = new_controller
