@@ -10,6 +10,7 @@ only this file needs updating — callers are unaffected.
 """
 
 import time
+import os
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from spotipy.exceptions import SpotifyException
@@ -55,26 +56,47 @@ class SpotifyController:
         Parameters:
             client_id (str) — Spotify app Client ID from the user's config.
             client_secret (str) — Spotify app Client Secret from the user's config.
-            redirect_port (int) — local port for the OAuth redirect (default 8888,
-                with fallback handled by caller if the port is taken).
-            notify_callback (callable) — function taking a str message, used to
-                show tray/GUI notifications for errors (no internet, no device, etc).
+            redirect_port (int) — local port for the OAuth redirect.
+            notify_callback (callable) — shows tray/GUI notifications for errors.
         Returns: None.
 
-        Explanation: Spotipy's SpotifyOAuth handles token exchange AND silent
-        refresh internally via its cache — we never manually manage tokens.
+        Explanation: cache_path is pointed at %APPDATA%\\Keyify so login persists
+        across restarts. _authenticate_now() runs immediately at construction
+        so the browser login prompt and any errors surface right away when the
+        user clicks Save, instead of failing silently inside a hotkey thread.
         """
         self.notify = notify_callback
         redirect_uri = f"http://127.0.0.1:{redirect_port}/callback"
+
+        appdata_dir = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "Keyify")
+        os.makedirs(appdata_dir, exist_ok=True)
+        cache_path = os.path.join(appdata_dir, ".cache")
+
         auth_manager = SpotifyOAuth(
             client_id=client_id,
             client_secret=client_secret,
             redirect_uri=redirect_uri,
             scope=SCOPES,
-            cache_path=None,  # caller supplies a cache path in %APPDATA%\Keyify
+            cache_path=cache_path,
             open_browser=True,
         )
         self.sp = spotipy.Spotify(auth_manager=auth_manager)
+        self._authenticate_now()
+
+    def _authenticate_now(self):
+        """
+        Purpose: Forces Spotipy to complete OAuth login immediately.
+        Parameters: None.
+        Returns: None.
+        """
+        try:
+            self.sp.current_user()
+        except SpotifyException as e:
+            self.notify(f"Spotify authentication failed: {e.msg}")
+            raise
+        except Exception as e:
+            self.notify(f"Spotify authentication failed: {e}")
+            raise
 
     def _get_target_device_id(self):
         """

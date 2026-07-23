@@ -101,13 +101,16 @@ def main():
 
         port = port_utils.find_available_port()
         app_config["redirect_port"] = port
-        new_controller = SpotifyController(
-            client_id=client_id,
-            client_secret=client_secret,
-            redirect_port=port,
-            notify_callback=notify,
-        )
-        new_controller._client_id = client_id  # Tag for the reuse check above.
+        try:
+            new_controller = SpotifyController(
+                client_id=client_id,
+                client_secret=client_secret,
+                redirect_port=port,
+                notify_callback=notify,
+            )
+        except Exception:
+            return None
+        new_controller._client_id = client_id
         controller_holder["controller"] = new_controller
         return new_controller
 
