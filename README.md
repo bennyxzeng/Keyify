@@ -65,6 +65,10 @@ Keyify needs a Spotify Developer app to talk to your Spotify account. This is a 
 - Volume changes are clamped between 0 and 100.
 - Closing the Settings window does **not** quit Keyify — it keeps running in the tray. Use **Quit Keyify** from the tray menu to fully exit.
 
+## License
+
+This project is licensed under the MIT License — see [LICENSE](LICENSE) for details. Third-party dependency licenses are listed in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
+
 ## Built With
 
 - [Spotipy](https://spotipy.readthedocs.io/) — Python client for the Spotify Web API
