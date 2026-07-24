@@ -38,7 +38,7 @@ All keybinds can be changed at any time from the Settings window (right-click th
 
 ## Setup Guide
 
-Keyify needs a Spotify Developer app to talk to your Spotify account. This is a one-time setup.
+Keyify needs a Spotify Developer app in order to control your Spotify account with hotkeys. This is a one-time setup.
 
 1. Go to [Spotify for Developers](https://developer.spotify.com/dashboard) and log in with your Spotify account.
 2. Click **Create App**, give it any name/description (e.g. "Keyify"), and set the **Redirect URI** to `http://127.0.0.1:8888/callback`.
@@ -65,9 +65,25 @@ Keyify needs a Spotify Developer app to talk to your Spotify account. This is a 
 - Volume changes are clamped between 0 and 100.
 - Closing the Settings window does **not** quit Keyify — it keeps running in the tray. Use **Quit Keyify** from the tray menu to fully exit.
 
-## License
+## Troubleshooting & FAQ
 
-This project is licensed under the MIT License — see [LICENSE](LICENSE) for details. Third-party dependency licenses are listed in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
+**Hotkeys aren't doing anything, even though Settings shows they're saved.**
+Make sure the Spotify desktop app (or a web player) is open and has an active playback session. Keyify controls existing playback — it can't launch Spotify or start playback on its own.
+
+**I got a popup saying "Could not register hotkey... it may be in use by another app."**
+Another application (game overlay, media software, another shortcut tool) is already using that exact key combination. Open Settings and rebind that action to a different combo.
+
+**Shuffle or Repeat gave me a message saying it's "currently unavailable for this content."**
+This isn't a bug — Spotify itself blocks toggling shuffle/repeat during certain playback contexts (ads, some podcasts/audiobooks, or other restricted content). Wait for the current track/context to change and try again.
+
+**I enabled "Start Keyify when Windows starts," but it didn't launch automatically after rebooting.**
+Check Windows' own Startup Apps list (Settings > Apps > Startup, or Task Manager > Startup Apps tab). Windows keeps a separate on/off switch for every startup entry that can silently override Keyify's own toggle — find Keyify there and make sure it's switched **On** as well.
+
+**I don't see the Keyify icon anywhere after launching it.**
+Check the system tray's hidden icons overflow (the small up-arrow near the clock, bottom-right of your taskbar) — Windows often tucks new tray icons there instead of showing them directly.
+
+**Where are my settings and login stored?**
+Config (keybinds, preferences) is stored in `%APPDATA%\Keyify\config.json`. Your cached Spotify login token is stored separately in `%APPDATA%\Keyify\.cache`. Deleting the `.cache` file forces a fresh login next time you save settings — useful if authentication ever seems stuck in a broken state.
 
 ## Built With
 
